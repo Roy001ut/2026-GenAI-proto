@@ -18,3 +18,11 @@ build/
 *.swo
 .vscode/
 .idea/
+
+# SQLite database (runtime data)
+*.db
+*.sqlite
+*.sqlite3
+
+# Python virtual environment
+backend/.venv/
