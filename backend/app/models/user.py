@@ -1,5 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Boolean, DateTime, func, Uuid
 import uuid
 from app.database.base import Base
 
@@ -7,7 +6,7 @@ from app.database.base import Base
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255))

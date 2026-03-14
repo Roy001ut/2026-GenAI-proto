@@ -3,7 +3,7 @@ from app.config import settings
 import json
 from typing import Dict, Any
 
-client = Anthropic()
+client = Anthropic(api_key=settings.CLAUDE_API_KEY)
 
 
 class InsuranceService:
