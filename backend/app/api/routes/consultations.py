@@ -1,3 +1,4 @@
+import uuid as uuid_module
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -20,11 +21,9 @@ class ConsultationCreate(BaseModel):
 @router.post("/")
 async def create_consultation(
     data: ConsultationCreate,
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user_id = await get_current_user(authorization, db)
-
     consultation = Consultation(
         user_id=user_id,
         doctor_name=data.doctor_name,
@@ -41,11 +40,9 @@ async def create_consultation(
 
 @router.get("/")
 async def list_consultations(
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user_id = await get_current_user(authorization, db)
-
     consultations = db.query(Consultation).filter(
         Consultation.user_id == user_id
     ).order_by(Consultation.consultation_date.desc()).all()

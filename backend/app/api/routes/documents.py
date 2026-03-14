@@ -1,3 +1,4 @@
+import uuid as uuid_module
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -14,7 +15,7 @@ router = APIRouter()
 async def upload_document(
     document_type: str,
     file: UploadFile = File(...),
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
@@ -22,10 +23,8 @@ async def upload_document(
     except KeyError:
         raise HTTPException(status_code=400, detail="Invalid document type")
 
-    user_id = await get_current_user(authorization, db)
-
     try:
-        file_path = await DocumentService.save_file(file, user_id)
+        file_path = await DocumentService.save_file(file, str(user_id))
         raw_text = await DocumentService.extract_text(file_path, file.content_type)
 
         document = Document(
@@ -46,39 +45,46 @@ async def upload_document(
 
 @router.get("/")
 async def list_documents(
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user_id = await get_current_user(authorization, db)
     documents = db.query(Document).filter(Document.user_id == user_id).all()
-    return documents
+    return [{"id": str(d.id), "document_type": d.document_type.value, "original_filename": d.original_filename} for d in documents]
 
 
 @router.get("/{document_id}")
 async def get_document(
     document_id: str,
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user_id = await get_current_user(authorization, db)
+    try:
+        doc_uuid = uuid_module.UUID(document_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid document ID")
+
     document = db.query(Document).filter(
-        Document.id == document_id,
+        Document.id == doc_uuid,
         Document.user_id == user_id
     ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    return document
+    return {"id": str(document.id), "document_type": document.document_type.value, "original_filename": document.original_filename}
 
 
 @router.delete("/{document_id}")
 async def delete_document(
     document_id: str,
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user_id = await get_current_user(authorization, db)
+    try:
+        doc_uuid = uuid_module.UUID(document_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid document ID")
+
     document = db.query(Document).filter(
-        Document.id == document_id,
+        Document.id == doc_uuid,
         Document.user_id == user_id
     ).first()
     if not document:

@@ -1,3 +1,4 @@
+import uuid as uuid_module
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -22,11 +23,9 @@ class LabReportCreate(BaseModel):
 @router.post("/lab-reports")
 async def add_lab_report(
     lab_data: LabReportCreate,
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user_id = await get_current_user(authorization, db)
-
     status = "normal"
     if lab_data.test_value < lab_data.normal_range_min:
         status = "low"
@@ -51,11 +50,9 @@ async def add_lab_report(
 
 @router.get("/all-reports")
 async def list_lab_reports(
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user_id = await get_current_user(authorization, db)
-
     reports = db.query(LabReport).filter(
         LabReport.user_id == user_id
     ).order_by(LabReport.test_date.desc()).all()
@@ -72,11 +69,9 @@ async def list_lab_reports(
 @router.get("/trends/{test_name}")
 async def get_lab_trends(
     test_name: str,
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user_id = await get_current_user(authorization, db)
-
     reports = db.query(LabReport).filter(
         LabReport.user_id == user_id,
         LabReport.test_name == test_name

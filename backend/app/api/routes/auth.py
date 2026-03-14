@@ -38,7 +38,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
 async def get_current_user(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
-) -> str:
+) -> uuid_module.UUID:
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing authorization header")
 
@@ -47,12 +47,12 @@ async def get_current_user(
     except IndexError:
         raise HTTPException(status_code=401, detail="Invalid authorization header")
 
-    user_id = AuthService.verify_token(token)
-    if not user_id:
+    user_id_str = AuthService.verify_token(token)
+    if not user_id_str:
         raise HTTPException(status_code=401, detail="Invalid token")
 
     try:
-        uuid_obj = uuid_module.UUID(user_id)
+        uuid_obj = uuid_module.UUID(user_id_str)
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
@@ -60,13 +60,12 @@ async def get_current_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return str(uuid_obj)
+    return uuid_obj
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
-    uuid_obj = uuid_module.UUID(user_id)
-    user = db.query(User).filter(User.id == uuid_obj).first()
+async def get_me(user_id: uuid_module.UUID = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user

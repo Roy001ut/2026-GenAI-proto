@@ -1,3 +1,4 @@
+import uuid as uuid_module
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -30,11 +31,9 @@ class InsuranceAnalysisRequest(BaseModel):
 @router.post("/drug")
 async def analyze_drug(
     request: DrugAnalysisRequest,
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user_id = await get_current_user(authorization, db)
-
     analysis = DrugService.analyze_drug(request.drug_name, request.dosage)
 
     drug_analysis = DrugAnalysis(
@@ -57,12 +56,15 @@ async def analyze_drug(
 @router.post("/bill")
 async def analyze_bill(
     request: BillAnalysisRequest,
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user_id = await get_current_user(authorization, db)
+    try:
+        doc_uuid = uuid_module.UUID(request.document_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid document ID")
 
-    document = db.query(Document).filter(Document.id == request.document_id).first()
+    document = db.query(Document).filter(Document.id == doc_uuid).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -70,7 +72,7 @@ async def analyze_bill(
 
     bill_analysis = BillAnalysis(
         user_id=user_id,
-        document_id=request.document_id,
+        document_id=doc_uuid,
         charges=analysis.get("charges", []),
         red_flags=analysis.get("red_flags", []),
         fraud_risk_score=analysis.get("fraud_risk_score", 0)
@@ -84,12 +86,15 @@ async def analyze_bill(
 @router.post("/insurance")
 async def analyze_insurance(
     request: InsuranceAnalysisRequest,
-    authorization: Optional[str] = Header(None),
+    user_id: uuid_module.UUID = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user_id = await get_current_user(authorization, db)
+    try:
+        doc_uuid = uuid_module.UUID(request.document_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid document ID")
 
-    document = db.query(Document).filter(Document.id == request.document_id).first()
+    document = db.query(Document).filter(Document.id == doc_uuid).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -97,7 +102,7 @@ async def analyze_insurance(
 
     insurance_analysis = InsuranceAnalysis(
         user_id=user_id,
-        document_id=request.document_id,
+        document_id=doc_uuid,
         provider_name=analysis.get("provider_name", ""),
         deductible=analysis.get("deductible", {}),
         copays=analysis.get("copays", {}),
