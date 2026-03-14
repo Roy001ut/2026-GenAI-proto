@@ -6,17 +6,24 @@ from app.config import settings
 from app.models.user import User
 from sqlalchemy.orm import Session
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+_pwd_context = None
+
+
+def get_pwd_context() -> CryptContext:
+    global _pwd_context
+    if _pwd_context is None:
+        _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    return _pwd_context
 
 
 class AuthService:
     @staticmethod
     def hash_password(password: str) -> str:
-        return pwd_context.hash(password)
+        return get_pwd_context().hash(password)
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        return pwd_context.verify(plain_password, hashed_password)
+        return get_pwd_context().verify(plain_password, hashed_password)
 
     @staticmethod
     def create_access_token(user_id: str, expires_delta: Optional[timedelta] = None):
