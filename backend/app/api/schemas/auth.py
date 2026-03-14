@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 
 
@@ -25,8 +25,12 @@ class UserResponse(BaseModel):
     full_name: str
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    @field_validator('id', mode='before')
+    @classmethod
+    def uuid_to_str(cls, v):
+        return str(v)
+
+    model_config = {"from_attributes": True}
 
 
 class DocumentResponse(BaseModel):
@@ -34,5 +38,9 @@ class DocumentResponse(BaseModel):
     document_type: str
     original_filename: str
 
-    class Config:
-        from_attributes = True
+    @field_validator('id', mode='before')
+    @classmethod
+    def uuid_to_str(cls, v):
+        return str(v)
+
+    model_config = {"from_attributes": True}

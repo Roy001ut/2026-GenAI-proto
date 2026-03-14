@@ -1,3 +1,4 @@
+import uuid as uuid_module
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.api.schemas.auth import UserCreate, UserLogin, TokenResponse, UserResponse
@@ -50,16 +51,22 @@ async def get_current_user(
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    user = db.query(User).filter(User.id == user_id).first()
+    try:
+        uuid_obj = uuid_module.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user = db.query(User).filter(User.id == uuid_obj).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return str(user_id)
+    return str(uuid_obj)
 
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
+    uuid_obj = uuid_module.UUID(user_id)
+    user = db.query(User).filter(User.id == uuid_obj).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
