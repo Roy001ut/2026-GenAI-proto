@@ -1,7 +1,7 @@
-from sqlalchemy import Column, String, Text, DateTime, Enum, func, ForeignKey, Uuid, JSON
 import uuid
 import enum
-from app.database.base import Base
+from sqlalchemy import Column, String, Text, DateTime, Enum, ForeignKey, Uuid, JSON, func
+from app.database import Base
 
 
 class DocumentType(str, enum.Enum):
@@ -21,9 +21,5 @@ class Document(Base):
     original_filename = Column(String(255))
     file_path = Column(String(255))
     raw_text = Column(Text)
-    extracted_data = Column(JSON, default={})
+    extracted_data = Column(JSON, default=dict)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    def __repr__(self):
-        return f"<Document {self.original_filename}>"

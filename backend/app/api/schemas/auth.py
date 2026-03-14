@@ -27,8 +27,6 @@ class UserResponse(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    """Returned by both /login and /register — token + user in one shot."""
     access_token: str
     token_type: str = "bearer"
-    expires_in: int
     user: UserResponse

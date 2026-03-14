@@ -1,40 +1,38 @@
 import uuid as uuid_module
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional
 from pydantic import BaseModel
-from app.database.session import get_db
+from app.database import get_db
 from app.models.document import Document
 from app.models.analysis import DrugAnalysis, BillAnalysis, InsuranceAnalysis
 from app.models.user import User
-from app.services.drug_service import DrugService
-from app.services.bill_service import BillService
-from app.services.insurance_service import InsuranceService
+from app.services import ai_service
 from app.api.routes.auth import get_current_user
 
 router = APIRouter()
 
 
-class DrugAnalysisRequest(BaseModel):
+class DrugRequest(BaseModel):
     drug_name: str
     dosage: str
 
 
-class BillAnalysisRequest(BaseModel):
+class BillRequest(BaseModel):
     document_id: str
     patient_diagnosis: Optional[str] = None
 
 
-class InsuranceAnalysisRequest(BaseModel):
+class InsuranceRequest(BaseModel):
     document_id: str
 
 
-def _get_document(db: Session, document_id: str) -> Document:
+def _get_doc(db: Session, document_id: str) -> Document:
     try:
-        doc_uuid = uuid_module.UUID(document_id)
+        uid = uuid_module.UUID(document_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid document ID")
-    doc = db.query(Document).filter(Document.id == doc_uuid).first()
+    doc = db.query(Document).filter(Document.id == uid).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     return doc
@@ -42,60 +40,37 @@ def _get_document(db: Session, document_id: str) -> Document:
 
 @router.post("/drug")
 async def analyze_drug(
-    request: DrugAnalysisRequest,
+    req: DrugRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    analysis = DrugService.analyze_drug(request.drug_name, request.dosage)
-    db.add(DrugAnalysis(
-        user_id=current_user.id,
-        drug_name=request.drug_name,
-        dosage=request.dosage,
-        what_is_it=analysis.get("what_is_it", ""),
-        treats=analysis.get("treats", []),
-        side_effects=analysis.get("side_effects", []),
-        insurance_coverage=analysis.get("insurance_coverage", {}),
-        alternate_salts=analysis.get("generic_available", False),
-        red_flags=analysis.get("red_flags", []),
-    ))
+    result = ai_service.analyze_drug(req.drug_name, req.dosage)
+    db.add(DrugAnalysis(user_id=current_user.id, drug_name=req.drug_name, dosage=req.dosage, result=result))
     db.commit()
-    return analysis
+    return result
 
 
 @router.post("/bill")
 async def analyze_bill(
-    request: BillAnalysisRequest,
+    req: BillRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    doc = _get_document(db, request.document_id)
-    analysis = BillService.analyze_bill(doc.raw_text, request.patient_diagnosis)
-    db.add(BillAnalysis(
-        user_id=current_user.id,
-        document_id=doc.id,
-        charges=analysis.get("charges", []),
-        red_flags=analysis.get("red_flags", []),
-        fraud_risk_score=analysis.get("fraud_risk_score", 0),
-    ))
+    doc = _get_doc(db, req.document_id)
+    result = ai_service.analyze_bill(doc.raw_text or "", req.patient_diagnosis or "")
+    db.add(BillAnalysis(user_id=current_user.id, document_id=doc.id, result=result))
     db.commit()
-    return analysis
+    return result
 
 
 @router.post("/insurance")
 async def analyze_insurance(
-    request: InsuranceAnalysisRequest,
+    req: InsuranceRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    doc = _get_document(db, request.document_id)
-    analysis = InsuranceService.parse_insurance_policy(doc.raw_text)
-    db.add(InsuranceAnalysis(
-        user_id=current_user.id,
-        document_id=doc.id,
-        provider_name=analysis.get("provider_name", ""),
-        deductible=analysis.get("deductible", {}),
-        copays=analysis.get("copays", {}),
-        coverage_breakdown=analysis.get("coverage", {}),
-    ))
+    doc = _get_doc(db, req.document_id)
+    result = ai_service.analyze_insurance(doc.raw_text or "")
+    db.add(InsuranceAnalysis(user_id=current_user.id, document_id=doc.id, result=result))
     db.commit()
-    return analysis
+    return result

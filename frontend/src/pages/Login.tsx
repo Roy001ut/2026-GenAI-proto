@@ -1,102 +1,114 @@
-import { useState } from 'react';
-import { useAuthStore } from '../store/auth.store';
+import { useState, FormEvent } from 'react';
 import api from '../services/api';
+import { useAuthStore } from '../store/auth';
 
 export default function Login() {
-  const [isLogin, setIsLogin] = useState(true);
+  const { setAuth } = useAuthStore();
+  const [tab, setTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setToken, setUser } = useAuthStore();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      // Both /login and /register return { access_token, user, ... }
-      const endpoint = isLogin ? '/auth/login' : '/auth/register';
-      const payload = isLogin
+      const endpoint = tab === 'login' ? '/auth/login' : '/auth/register';
+      const payload = tab === 'login'
         ? { email, password }
         : { email, password, full_name: fullName };
-
       const { data } = await api.post(endpoint, payload);
-      setToken(data.access_token);
-      setUser(data.user);
+      setAuth(data.access_token, data.user);
     } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      setError(
-        Array.isArray(detail)
-          ? detail.map((d: any) => d.msg).join(', ')
-          : detail || err.message || 'Network error — is the backend running?'
-      );
+      setError(err.response?.data?.detail || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-blue-600 mb-2 text-center">MedAudit</h1>
-        <p className="text-center text-gray-500 text-sm mb-8">AI-powered medical document analysis</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-indigo-600">MedAudit</h1>
+          <p className="text-gray-500 mt-1">AI-Powered Medical Analysis</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex rounded-lg bg-gray-100 p-1 mb-6">
+          {(['login', 'register'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => { setTab(t); setError(''); }}
+              className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+                tab === t ? 'bg-white text-indigo-600 shadow' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t === 'login' ? 'Sign In' : 'Register'}
+            </button>
+          ))}
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <h2 className="text-xl font-semibold">{isLogin ? 'Sign in' : 'Create account'}</h2>
+          {tab === 'register' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <input
+                type="text"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Your full name"
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="you@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="••••••••"
+            />
+          </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+            <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-3 py-2">
               {error}
             </div>
           )}
 
-          <input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-
-          {!isLogin && (
-            <input
-              type="text"
-              placeholder="Full name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          )}
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors font-medium"
+            className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? 'Please wait…' : isLogin ? 'Sign in' : 'Create account'}
+            {loading ? 'Please wait…' : tab === 'login' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
 
-        <button
-          onClick={() => { setIsLogin(!isLogin); setError(''); }}
-          className="w-full mt-4 text-sm text-blue-600 hover:text-blue-800"
-        >
-          {isLogin ? "Don't have an account? Register" : 'Already have an account? Sign in'}
-        </button>
+        {tab === 'login' && (
+          <p className="text-center text-xs text-gray-400 mt-4">
+            Demo: test@example.com / test123
+          </p>
+        )}
       </div>
     </div>
   );

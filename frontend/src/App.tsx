@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useAuthStore } from './store/auth.store';
+import { useAuthStore } from './store/auth';
 import api from './services/api';
 import Login from './pages/Login';
-import Dashboard from './components/Dashboard/Dashboard';
+import Dashboard from './pages/Dashboard';
 
 export default function App() {
   const { token, user, setUser, logout } = useAuthStore();
   const [loading, setLoading] = useState(!!token && !user);
 
-  // On hard refresh: token is in localStorage but user state is empty — re-fetch
   useEffect(() => {
     if (!token || user) {
       setLoading(false);
@@ -22,8 +21,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-gray-500">
-        Loading…
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-gray-500 text-lg">Loading…</div>
       </div>
     );
   }

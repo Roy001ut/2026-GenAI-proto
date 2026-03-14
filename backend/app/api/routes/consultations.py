@@ -1,8 +1,8 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from datetime import datetime
 from pydantic import BaseModel
-from app.database.session import get_db
+from app.database import get_db
 from app.models.analysis import Consultation
 from app.models.user import User
 from app.api.routes.auth import get_current_user
@@ -40,7 +40,7 @@ async def create_consultation(
         summary=data.summary,
         diagnoses=data.diagnoses,
         medications_prescribed=data.medications_prescribed,
-        consultation_date=datetime.utcnow(),
+        consultation_date=datetime.now(timezone.utc),
     )
     db.add(c)
     db.commit()
@@ -49,10 +49,7 @@ async def create_consultation(
 
 
 @router.get("/")
-async def list_consultations(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
+async def list_consultations(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     rows = (
         db.query(Consultation)
         .filter(Consultation.user_id == current_user.id)
