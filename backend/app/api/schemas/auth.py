@@ -1,5 +1,4 @@
 from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional
 
 
 class UserCreate(BaseModel):
@@ -13,34 +12,23 @@ class UserLogin(BaseModel):
     password: str
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
-
-
 class UserResponse(BaseModel):
     id: str
     email: str
     full_name: str
     is_active: bool
 
-    @field_validator('id', mode='before')
+    @field_validator("id", mode="before")
     @classmethod
-    def uuid_to_str(cls, v):
+    def coerce_uuid(cls, v):
         return str(v)
 
     model_config = {"from_attributes": True}
 
 
-class DocumentResponse(BaseModel):
-    id: str
-    document_type: str
-    original_filename: str
-
-    @field_validator('id', mode='before')
-    @classmethod
-    def uuid_to_str(cls, v):
-        return str(v)
-
-    model_config = {"from_attributes": True}
+class AuthResponse(BaseModel):
+    """Returned by both /login and /register — token + user in one shot."""
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: UserResponse

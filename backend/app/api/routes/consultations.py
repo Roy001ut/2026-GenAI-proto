@@ -1,11 +1,10 @@
-import uuid as uuid_module
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from typing import Optional
-from pydantic import BaseModel
 from datetime import datetime
+from pydantic import BaseModel
 from app.database.session import get_db
 from app.models.analysis import Consultation
+from app.models.user import User
 from app.api.routes.auth import get_current_user
 
 router = APIRouter()
@@ -18,33 +17,46 @@ class ConsultationCreate(BaseModel):
     medications_prescribed: list = []
 
 
+def _serialize(c: Consultation) -> dict:
+    return {
+        "id": str(c.id),
+        "doctor_name": c.doctor_name,
+        "summary": c.summary,
+        "diagnoses": c.diagnoses,
+        "medications_prescribed": c.medications_prescribed,
+        "consultation_date": c.consultation_date.isoformat(),
+    }
+
+
 @router.post("/")
 async def create_consultation(
     data: ConsultationCreate,
-    user_id: uuid_module.UUID = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    consultation = Consultation(
-        user_id=user_id,
+    c = Consultation(
+        user_id=current_user.id,
         doctor_name=data.doctor_name,
         summary=data.summary,
         diagnoses=data.diagnoses,
         medications_prescribed=data.medications_prescribed,
-        consultation_date=datetime.utcnow()
+        consultation_date=datetime.utcnow(),
     )
-    db.add(consultation)
+    db.add(c)
     db.commit()
-
-    return consultation
+    db.refresh(c)
+    return _serialize(c)
 
 
 @router.get("/")
 async def list_consultations(
-    user_id: uuid_module.UUID = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    consultations = db.query(Consultation).filter(
-        Consultation.user_id == user_id
-    ).order_by(Consultation.consultation_date.desc()).all()
-
-    return consultations
+    rows = (
+        db.query(Consultation)
+        .filter(Consultation.user_id == current_user.id)
+        .order_by(Consultation.consultation_date.desc())
+        .all()
+    )
+    return [_serialize(c) for c in rows]

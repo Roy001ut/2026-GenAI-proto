@@ -1,52 +1,54 @@
 import bcrypt
+import jwt
 from datetime import datetime, timedelta
 from typing import Optional
-import jwt
+from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.user import User
-from sqlalchemy.orm import Session
 
 
 class AuthService:
+
     @staticmethod
     def hash_password(password: str) -> str:
-        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
     @staticmethod
-    def verify_password(plain_password: str, hashed_password: str) -> bool:
-        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+    def verify_password(plain: str, hashed: str) -> bool:
+        return bcrypt.checkpw(plain.encode(), hashed.encode())
 
     @staticmethod
-    def create_access_token(user_id: str, expires_delta: Optional[timedelta] = None):
-        if expires_delta is None:
-            expires_delta = timedelta(hours=settings.JWT_EXPIRATION_HOURS)
-
-        expire = datetime.utcnow() + expires_delta
-        to_encode = {"sub": str(user_id), "exp": expire}
-        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-        return encoded_jwt
+    def create_token(user_id: str) -> str:
+        expire = datetime.utcnow() + timedelta(hours=settings.JWT_EXPIRATION_HOURS)
+        return jwt.encode(
+            {"sub": user_id, "exp": expire},
+            settings.SECRET_KEY,
+            algorithm=settings.JWT_ALGORITHM,
+        )
 
     @staticmethod
-    def verify_token(token: str):
+    def decode_token(token: str) -> Optional[str]:
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-            user_id = payload.get("sub")
-            return user_id
+            return payload.get("sub")
         except jwt.InvalidTokenError:
             return None
 
     @staticmethod
     def create_user(db: Session, email: str, password: str, full_name: str) -> User:
-        hashed_password = AuthService.hash_password(password)
-        user = User(email=email, password_hash=hashed_password, full_name=full_name)
+        user = User(
+            email=email,
+            password_hash=AuthService.hash_password(password),
+            full_name=full_name,
+        )
         db.add(user)
         db.commit()
         db.refresh(user)
         return user
 
     @staticmethod
-    def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
+    def authenticate(db: Session, email: str, password: str) -> Optional[User]:
         user = db.query(User).filter(User.email == email).first()
-        if not user or not AuthService.verify_password(password, user.password_hash):
-            return None
-        return user
+        if user and AuthService.verify_password(password, user.password_hash):
+            return user
+        return None

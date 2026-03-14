@@ -1,11 +1,10 @@
-import uuid as uuid_module
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional
-from datetime import datetime, date
+from datetime import date
 from pydantic import BaseModel
 from app.database.session import get_db
 from app.models.analysis import LabReport
+from app.models.user import User
 from app.api.routes.auth import get_current_user
 
 router = APIRouter()
@@ -22,82 +21,92 @@ class LabReportCreate(BaseModel):
 
 @router.post("/lab-reports")
 async def add_lab_report(
-    lab_data: LabReportCreate,
-    user_id: uuid_module.UUID = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    data: LabReportCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     status = "normal"
-    if lab_data.test_value < lab_data.normal_range_min:
+    if data.test_value < data.normal_range_min:
         status = "low"
-    elif lab_data.test_value > lab_data.normal_range_max:
+    elif data.test_value > data.normal_range_max:
         status = "high"
 
-    lab_report = LabReport(
-        user_id=user_id,
-        test_name=lab_data.test_name,
-        test_value=lab_data.test_value,
-        unit=lab_data.unit,
-        normal_range_min=lab_data.normal_range_min,
-        normal_range_max=lab_data.normal_range_max,
+    report = LabReport(
+        user_id=current_user.id,
+        test_name=data.test_name,
+        test_value=data.test_value,
+        unit=data.unit,
+        normal_range_min=data.normal_range_min,
+        normal_range_max=data.normal_range_max,
         status=status,
-        test_date=lab_data.test_date
+        test_date=data.test_date,
     )
-    db.add(lab_report)
+    db.add(report)
     db.commit()
-
-    return lab_report
+    db.refresh(report)
+    return {
+        "id": str(report.id),
+        "test_name": report.test_name,
+        "test_value": float(report.test_value),
+        "unit": report.unit,
+        "status": report.status,
+        "test_date": str(report.test_date),
+    }
 
 
 @router.get("/all-reports")
 async def list_lab_reports(
-    user_id: uuid_module.UUID = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    reports = db.query(LabReport).filter(
-        LabReport.user_id == user_id
-    ).order_by(LabReport.test_date.desc()).all()
-
-    organized = {}
-    for report in reports:
-        if report.test_name not in organized:
-            organized[report.test_name] = []
-        organized[report.test_name].append(report)
-
-    return organized
+    reports = (
+        db.query(LabReport)
+        .filter(LabReport.user_id == current_user.id)
+        .order_by(LabReport.test_date.desc())
+        .all()
+    )
+    grouped: dict = {}
+    for r in reports:
+        grouped.setdefault(r.test_name, []).append({
+            "id": str(r.id),
+            "test_value": float(r.test_value),
+            "unit": r.unit,
+            "status": r.status,
+            "test_date": str(r.test_date),
+        })
+    return grouped
 
 
 @router.get("/trends/{test_name}")
-async def get_lab_trends(
+async def get_trends(
     test_name: str,
-    user_id: uuid_module.UUID = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    reports = db.query(LabReport).filter(
-        LabReport.user_id == user_id,
-        LabReport.test_name == test_name
-    ).order_by(LabReport.test_date).all()
-
+    reports = (
+        db.query(LabReport)
+        .filter(LabReport.user_id == current_user.id, LabReport.test_name == test_name)
+        .order_by(LabReport.test_date)
+        .all()
+    )
     if len(reports) < 2:
-        return {"message": "Need at least 2 reports for trend analysis", "test_name": test_name}
+        return {"message": "Need at least 2 data points for trend analysis", "test_name": test_name}
 
     values = [float(r.test_value) for r in reports]
     direction = "stable"
     if values[-1] > values[0]:
-        direction = "improving"
+        direction = "increasing"
     elif values[-1] < values[0]:
-        direction = "declining"
+        direction = "decreasing"
 
-    days_diff = (reports[-1].test_date - reports[0].test_date).days
-    value_diff = values[-1] - values[0]
-    rate_per_month = (value_diff / days_diff * 30) if days_diff > 0 else 0
+    days = (reports[-1].test_date - reports[0].test_date).days
+    rate = ((values[-1] - values[0]) / days * 30) if days > 0 else 0
 
     return {
         "test_name": test_name,
-        "trend": {
-            "direction": direction,
-            "rate_of_change": round(rate_per_month, 2),
-            "baseline": values[0],
-            "current": values[-1],
-            "count": len(reports)
-        }
+        "direction": direction,
+        "rate_per_month": round(rate, 2),
+        "baseline": values[0],
+        "current": values[-1],
+        "count": len(reports),
     }
