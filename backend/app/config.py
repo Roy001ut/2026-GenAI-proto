@@ -3,8 +3,8 @@ from typing import Optional, List
 
 
 class Settings(BaseSettings):
-    # Database
-    DATABASE_URL: str = "postgresql://medaudit:password@localhost:5432/medaudit_db"
+    # Database (defaults to SQLite for zero-config local dev)
+    DATABASE_URL: str = "sqlite:///./medaudit.db"
     REDIS_URL: str = "redis://localhost:6379"
 
     # API Keys

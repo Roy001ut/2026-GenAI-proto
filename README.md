@@ -1,58 +1,82 @@
 # MedAudit: AI-Powered Medical Bill & Prescription Analyzer
 
-An intelligent system that analyzes prescriptions, detects billing fraud, parses insurance policies, transcribes doctor consultations, and tracks health metrics over time.
+An intelligent system that analyzes prescriptions, detects billing fraud, parses insurance policies, and tracks health metrics over time.
 
 ## Features
 - 💊 Drug prescription analysis with insurance coverage
 - 📋 Hospital bill fraud detection & cost breakdown
-- 🎙️ Real-time doctor consultation transcription
 - 📊 Health wallet with lab report trends
 - 📄 Insurance policy parsing & breakdown
+- 🎙️ Doctor consultation management
 
-## Quick Start
+## Quick Start (No Docker needed)
 
 ### Prerequisites
-- Docker & Docker Compose
-- Git
+- Python 3.11+
+- Node.js 18+
 
-### Setup
+### 1. Add your API key
+
+Edit `.env` and set your Claude API key:
+
+```
+CLAUDE_API_KEY=sk-ant-...
+```
+
+### 2. Run
 
 ```bash
-# Clone repo
-git clone <your-repo>
-cd medaudit
-
-# Copy environment file
-cp .env.example .env
-# Edit .env with your API keys
-
-# Start all services
-docker-compose up
-
-# Access:
-# Frontend: http://localhost:5173
-# Backend: http://localhost:8000
-# API Docs: http://localhost:8000/docs
+./start.sh
 ```
+
+That's it. The script will:
+- Create a Python virtual environment automatically
+- Install all backend & frontend dependencies
+- Start both servers
+
+### Access
+| Service  | URL |
+|----------|-----|
+| Frontend | http://localhost:5173 |
+| Backend  | http://localhost:8000 |
+| API Docs | http://localhost:8000/docs |
+
+The SQLite database is created automatically at `backend/medaudit.db` — no database setup required.
+
+Press **Ctrl+C** to stop everything.
+
+---
 
 ## Tech Stack
 - **Frontend:** React 18 + TypeScript + Tailwind CSS
 - **Backend:** FastAPI + Python 3.11
-- **Database:** PostgreSQL + Redis
-- **AI:** Claude API, Whisper API
+- **Database:** SQLite (zero config) — swap to PostgreSQL via `DATABASE_URL` in `.env`
+- **AI:** Claude API
 
 ## Project Structure
 
 ```
 medaudit/
+├── start.sh          ← run this
+├── .env              ← add your API key here
 ├── backend/          # FastAPI application
-├── frontend/         # React application
-├── docker-compose.yml
-├── .env.example
-└── README.md
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   ├── models/
+│   │   ├── services/
+│   │   └── api/routes/
+│   └── requirements.txt
+└── frontend/         # React application
+    └── src/
 ```
 
-## API Documentation
-Once running, visit: http://localhost:8000/docs
+## Docker (optional)
+
+If you prefer Docker:
+
+```bash
+docker-compose up
+```
 
 Built for GenAI Genesis 2026 Hackathon
