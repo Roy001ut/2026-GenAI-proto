@@ -8,13 +8,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// DEMO MODE: intercept responses so the UI works without a backend
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.reload();
-    }
+    // Suppress 401 redirects in demo mode (no real auth)
+    if (err.response?.status === 401) return Promise.reject(err);
+
+    // Return sensible empty stubs so pages don't hard-crash
+    const url: string = err.config?.url ?? '';
+    if (url.includes('/documents')) return Promise.resolve({ data: [] });
+    if (url.includes('/health-wallet')) return Promise.resolve({ data: [] });
+    if (url.includes('/consultations')) return Promise.resolve({ data: [] });
+    if (url.includes('/analysis')) return Promise.resolve({ data: { note: 'Demo mode — no backend connected.' } });
+
     return Promise.reject(err);
   }
 );

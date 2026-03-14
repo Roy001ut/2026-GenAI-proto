@@ -1,31 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAuthStore } from './store/auth';
-import api from './services/api';
-import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
+// DEMO MODE: bypass login and env config — show the feature directly
+const DEMO_USER = {
+  id: 'demo-user-001',
+  email: 'demo@medaudit.ai',
+  full_name: 'Demo User',
+  is_active: true,
+};
+
 export default function App() {
-  const { token, user, setUser, logout } = useAuthStore();
-  const [loading, setLoading] = useState(!!token && !user);
+  const { user, setAuth } = useAuthStore();
 
   useEffect(() => {
-    if (!token || user) {
-      setLoading(false);
-      return;
+    if (!user) {
+      setAuth('demo-token', DEMO_USER);
     }
-    api.get('/auth/me')
-      .then((r) => setUser(r.data))
-      .catch(() => logout())
-      .finally(() => setLoading(false));
-  }, []); // run once on mount
+  }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-gray-500 text-lg">Loading…</div>
-      </div>
-    );
-  }
+  if (!user) return null;
 
-  return token && user ? <Dashboard /> : <Login />;
+  return <Dashboard />;
 }
