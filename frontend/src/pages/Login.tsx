@@ -26,15 +26,16 @@ export default function Login() {
         });
         setUser(userResponse.data);
       } else {
-        const response = await api.post('/auth/register', { email, password, full_name: fullName });
-        setUser(response.data);
-        setIsLogin(true);
-        setEmail('');
-        setPassword('');
-        setFullName('');
+        await api.post('/auth/register', { email, password, full_name: fullName });
+        const loginRes = await api.post('/auth/login', { email, password });
+        setToken(loginRes.data.access_token);
+        const userRes = await api.get('/auth/me', {
+          headers: { Authorization: `Bearer ${loginRes.data.access_token}` }
+        });
+        setUser(userRes.data);
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'An error occurred');
+      setError(err.response?.data?.detail || err.message || 'Network error — is the backend running?');
     } finally {
       setLoading(false);
     }
